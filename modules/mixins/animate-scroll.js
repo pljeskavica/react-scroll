@@ -44,8 +44,11 @@ var requestAnimationFrameHelper = (function () {
 
 
 var __currentPositionY  = 0;
+var __currentPositionX  = 0;
 var __startPositionY    = 0;
 var __targetPositionY   = 0;
+var __startPositionX    = 0;
+var __targetPositionX   = 0;
 var __progress          = 0;
 var __duration          = 0;
 var __cancel            = false;
@@ -55,6 +58,7 @@ var __containerElement;
 var __to;
 var __start;
 var __deltaTop;
+var __deltaLeft;
 var __percent;
 var __delayTimeout;
 
@@ -62,11 +66,22 @@ var __delayTimeout;
 var currentPositionY = function() {
   if (__containerElement) {
         return __containerElement.scrollTop;
-	} else {
+  } else {
     var supportPageOffset = window.pageXOffset !== undefined;
     var isCSS1Compat = ((document.compatMode || "") === "CSS1Compat");
     return supportPageOffset ? window.pageYOffset : isCSS1Compat ?
            document.documentElement.scrollTop : document.body.scrollTop;
+   }
+};
+
+var currentPositionX = function() {
+  if (__containerElement) {
+        return __containerElement.scrollLeft;
+  } else {
+    var supportPageOffset = window.pageXOffset !== undefined;
+    var isCSS1Compat = ((document.compatMode || "") === "CSS1Compat");
+    return supportPageOffset ? window.pageXOffset : isCSS1Compat ?
+           document.documentElement.scrollLeft : document.body.scrollLeft;
    }
 };
 
@@ -124,9 +139,42 @@ var animateTopScroll = function(timestamp) {
 
 };
 
+var animateLeftScroll = function(timestamp) {
+  // Cancel on specific events
+  if(__cancel) { return };
+
+  __deltaLeft = Math.round(__targetPositionX - __startPositionX);
+
+  if (__start === null) {
+    __start = timestamp;
+  }
+
+  __progress = timestamp - __start;
+
+  __percent = (__progress >= __duration ? 1 : easing(__progress/__duration));
+
+  __currentPositionX = __startPositionX + Math.ceil(__deltaLeft * __percent);
+
+  if(__containerElement) {
+    __containerElement.scrollLeft = __currentPositionX;
+  } else {
+    window.scrollTo(__currentPositionX, 0);
+  }
+
+  if(__percent < 1) {
+    requestAnimationFrameHelper.call(window, animateLeftScroll);
+    return;
+  }
+
+  if(events.registered['end']) {
+    events.registered['end'](__to, __target, __currentPositionX);
+  }
+
+};
+
 var setContainer = function (options) {
   if(!options || !options.containerId) { return; }
-	__containerElement = document.getElementById(options.containerId);
+  __containerElement = document.getElementById(options.containerId);
 };
 
 var startAnimateTopScroll = function(y, options, to, target) {
@@ -159,12 +207,46 @@ var startAnimateTopScroll = function(y, options, to, target) {
 
 };
 
+var startAnimateLeftScroll = function(x, options, to, target) {
+
+  window.clearTimeout(__delayTimeout);
+
+  if(!__containerElement) {
+    setContainer(options);
+  }
+
+  __start           = null;
+  __cancel          = false;
+  __startPositionX  = currentPositionX();
+  __targetPositionX = options.absolute ? x : x + __startPositionX;
+  __deltaLeft        = Math.round(__targetPositionX - __startPositionX);
+
+  __duration        = functionWrapper(options.duration)(__deltaLeft);
+  __duration        = isNaN(parseFloat(__duration)) ? 1000 : parseFloat(__duration);
+  __to              = to;
+  __target          = target;
+
+  if(options && options.delay > 0) {
+    __delayTimeout = window.setTimeout(function animate() {
+      requestAnimationFrameHelper.call(window, animateLeftScroll);
+    }, options.delay);
+    return;
+  }
+
+  requestAnimationFrameHelper.call(window, animateLeftScroll);
+
+};
+
 var scrollToTop = function (options) {
   startAnimateTopScroll(0, assign(options || {}, { absolute : true }));
 };
 
 var scrollTo = function (toY, options) {
   startAnimateTopScroll(toY, assign(options || {}, { absolute : true }));
+};
+
+var scrollToX = function (toX, options) {
+  startAnimateTopScroll(toX, assign(options || {}, { absolute : true }));
 };
 
 var scrollToBottom = function(options) {
@@ -177,10 +259,17 @@ var scrollMore = function(toY, options) {
   startAnimateTopScroll(currentPositionY() + toY, assign(options || {}, { absolute : true }));
 };
 
+var scrollMoreX = function(toX, options) {
+  setContainer(options);
+  startAnimateLeftScroll(currentPositionX() + toX, assign(options || {}, { absolute : true }));
+};
+
+
 module.exports = {
   animateTopScroll: startAnimateTopScroll,
   scrollToTop: scrollToTop,
   scrollToBottom: scrollToBottom,
   scrollTo: scrollTo,
   scrollMore: scrollMore,
+  scrollMoreX: scrollMoreX,
 };

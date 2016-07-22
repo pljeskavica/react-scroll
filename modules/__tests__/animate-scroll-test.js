@@ -35,6 +35,14 @@ describe('AnimateScroll', () => {
         <div style={{height: '10000px'}}></div>
       </div>
 
+  let wideComponent =
+    <div id="hugeComponent">
+      <a onClick={() => animateScroll.scrollToTop()}>Scroll To Top!</a>
+      <a onClick={() => animateScroll.scrollTo(100)}>Scroll To 100!</a>
+      <a onClick={() => animateScroll.scrollMore(10)}>Scroll More!</a>
+      <div style={{width: '1000px', height: '100vh'}}></div>
+    </div>
+
   afterEach(function () {
     window.scrollTo(0, 0);
 
@@ -142,5 +150,28 @@ describe('AnimateScroll', () => {
         done();
       }, 150);
     });
-  })
+  });
+
+  it('scrolls to a position relative to the current position', (done) => {
+    render(wideComponent, node, () => {
+      window.scrollTo(185, 0);
+      // expect(window.scrollY).toEqual(111);
+      expect(window.pageXOffset).toEqual(185);
+      animateScroll.scrollMoreX(15, { duration : duration });
+
+      setTimeout(() => {
+        expect(window.scrollX).toEqual(200);
+
+        animateScroll.scrollMoreX(52, { duration : duration });
+
+        // do it again!
+        setTimeout(() => {
+          expect(window.scrollY).toEqual(252);
+
+          done();
+        }, waitDuration);
+
+      }, waitDuration);
+    });
+  });
 });
